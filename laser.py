@@ -42,6 +42,9 @@ import random
 import gettext
 _ = gettext.gettext
 
+import base64
+from simplestyle import *
+import urllib2
 
 ### Check if inkex has errormsg (0.46 version doesnot have one.) Could be removed later.
 if "errormsg" not in dir(inkex):
@@ -2435,6 +2438,20 @@ class laser_gcode(inkex.Effect):
         self.OptionParser.add_option("",   "--active-tab",                      action="store", type="string",          dest="active_tab",                          default="",                             help="Defines which tab is active")
         self.OptionParser.add_option("",   "--biarc-max-split-depth",           action="store", type="int",             dest="biarc_max_split_depth",               default="4",                            help="Defines maximum depth of splitting while approximating using biarcs.")
 
+        self.OptionParser.add_option("",   "--laser-min",                       action="store", type="int",             dest="laserMin",                            default=0,                              help="")
+        self.OptionParser.add_option("",   "--laser-max",                       action="store", type="int",             dest="laserMax",                            default=255,                            help="")
+        self.OptionParser.add_option("",   "--laser-off",                       action="store", type="int",             dest="laserOff",                            default=0,                              help="")
+
+        self.OptionParser.add_option("",   "--white-level",                     action="store", type="int",             dest="whiteLevel",                          default=253,                            help="")
+
+#        self.OptionParser.add_option("",   "--travel-rate",                     action="store", type="int",            dest="travelRate",                          default=3000,                           help="")
+        self.OptionParser.add_option("",   "--feed-rate",                       action="store", type="int",             dest="feedRate",                            default=800,                            help="")
+
+        self.OptionParser.add_option("",   "--overscan",                        action="store", type="float",          dest="overScan",                            default=0,                              help="")
+
+        self.OptionParser.add_option("",   "--resolutionX",                     action="store", type="float",           dest="resX",                                default=0.1,                            help="")
+        self.OptionParser.add_option("",   "--resolutionY",                     action="store", type="float",           dest="scanGap",                             default=0.1,                            help="")
+
     def parse_curve(self, p, layer, w = None, f = None):
             c = []
             if len(p)==0 :
@@ -3060,7 +3077,9 @@ class laser_gcode(inkex.Effect):
                 self.draw_curve(curve, layer, biarc_group)
                 gcode += self.generate_gcode(curve, layer, 0)
 
-        self.export_gcode(gcode)
+        return gcode
+
+#        self.export_gcode(gcode)
 
 ################################################################################
 ###
@@ -3126,6 +3145,138 @@ class laser_gcode(inkex.Effect):
                 })
             t.text = "(%s; %s; %s)" % (i[0],i[1],i[2])
 
+################################################################################
+###
+###        image to gcode
+###
+###
+###
+################################################################################
+
+    DEBUG=1
+    def toBitmap(self):
+        global options
+
+        data = ''
+        tmp_hidden = []
+        gcode__ = ''
+
+        gs = self.document.findall('//{*}image')
+
+        for object in gs:
+            if not object.tag.endswith('image') and 'id' in object.attrib:
+                id = object.attrib['id']
+                tmp_hidden.append(id)
+                if 'style' in object.attrib:
+                    styles = parseStyle(object.get('style'))
+                    if 'display' in styles and styles['display'] == 'none':
+                        tmp_hidden.remove(id)
+
+            if object.tag.endswith('image'):
+                dx=object.attrib['x']
+                dy=object.attrib['y']
+                id=object.attrib['id']
+                height=object.attrib['height']
+                width=object.attrib['width']
+                href=object.attrib['{http://www.w3.org/1999/xlink}href']
+
+                result = re.match(r'data:([^;]+);base64,(.*)', href)
+
+                format = result.group(1)
+                imagedata = result.group(2)
+                if   format == 'image/jpeg':
+                    extension = 'jpg'
+                elif format == 'image/png':
+                    extension = 'png'
+
+                doc_height = self.unittouu(self.getDocumentHeight())
+
+                aa = base64.b64decode(imagedata)
+
+                data = self.__getPostParam__( dx, doc_height - float(dy) - float(height), height, aa )
+                gcode__ += self.__img2gco__("test", data)
+                gcode__ += '\r\n'
+
+        return gcode__
+
+    def __getPostParam__(self, dx, dy, height, imagedata):
+#        inkex.debug(self.options)
+        data = {
+            "LaserMin" : self.options.laserMin,
+            "LaserMax" : self.options.laserMax,
+            "LaserOff" : self.options.laserOff,
+            "whiteLevel" : self.options.whiteLevel,
+            "travelRate" : self.options.travel_speed,
+            "feedRate" : 800,
+            "overScan" : self.options.overScan,
+            "sizeY" : height,
+            "resX" : self.options.resX,
+            "scanGap" : self.options.scanGap,
+            "offsetX" : dx,
+            "offsetY" : dy,
+            "image" : imagedata,
+            "preview" : 0,
+        }
+        return data
+
+    def __encodeMultipart__(self, dict):
+        boundary = u"--------POSTDATApostdata"
+        encoding = "utf-8"
+        disposition = u'Content-Disposition: form-data; name="%s"'
+        disposition2 = u'Content-Disposition: form-data; name="%s"; filename="hogehoge.png"'
+        lines = bytearray(b'')
+
+        for k, v in dict.items():
+            lines += ('--' + boundary).encode('utf-8')
+            lines += ('\r\n').encode('utf-8')
+
+            if k == 'image':
+                lines += (disposition2 % k).encode('utf-8')
+                lines += ('\r\n').encode('utf-8')
+                lines += ("Content-Type: image/png").encode('utf-8')
+            else:
+                lines += (disposition % k).encode('utf-8')
+
+            lines += ('\r\n')
+
+            lines += ('')
+            lines += ('\r\n')
+
+            if k == 'image':
+                lines += v.decode('latin1').encode('latin1')
+                pass
+            else:
+                lines += str(v).encode('utf-8')
+
+            lines += ('\r\n')
+
+        lines += ("--" + boundary + "--").encode('utf-8')
+        lines += ('\r\n')
+        lines += ('')
+
+        return lines
+
+    def __img2gco__(self, filepath, data):
+        url = "http://img2gco.appspot.com/gcode.php"
+
+        boundary = u"--------POSTDATApostdata"
+        encoding = "utf-8"
+
+
+        req = urllib2.Request(url)
+        req.add_header("Content-Type", "multipart/form-data; boundary=%s"
+                        % boundary.encode(encoding))
+
+
+        postdata = self.__encodeMultipart__(data)
+
+        conn = urllib2.urlopen(req, postdata)
+
+        if conn.getcode() == 200:
+            return conn.read()
+        else:
+            return ""
+
 
 ################################################################################
 ###
@@ -3162,12 +3313,19 @@ class laser_gcode(inkex.Effect):
             "id": "Laser Engraver",
             "penetration feed": self.options.laser_speed,
             "feed": self.options.laser_speed,
-            "gcode before path": ("G4 P0 \n" + self.options.laser_command + " S" + str(int(self.options.laser_power)) + "\nG4 P" + self.options.power_delay),
-            "gcode after path": ("G4 P0 \n" + self.options.laser_off_command + " S0" + "\n" + "G1 F" + self.options.travel_speed),
+            "gcode before path": ("G4 P0 \n" + self.options.laser_command + "\n" + "M106 P1 S" + str(int(self.options.laser_power)) + "\nG4 P" + self.options.power_delay),
+            "gcode after path": ("G4 P0 \n" + self.options.laser_off_command + "\n" + "M106 P1 S0" + "\n" + "G1 F" + self.options.travel_speed),
         }
 
         self.get_info()
-        self.laser()
+        gcode = self.laser()
+#        inkex.debug(gcode)
+
+        bitmapgcode = self.toBitmap()
+#        inkex.debug(bitmapgcode)
+
+        self.export_gcode( gcode + bitmapgcode )
+
 
 e = laser_gcode()
 e.affect()
