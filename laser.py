@@ -2452,6 +2452,7 @@ class laser_gcode(inkex.Effect):
         self.OptionParser.add_option("",   "--resolutionX",                     action="store", type="float",           dest="resX",                                default=0.1,                            help="")
         self.OptionParser.add_option("",   "--resolutionY",                     action="store", type="float",           dest="scanGap",                             default=0.1,                            help="")
 
+        self.OptionParser.add_option("",   "--tabs",                            action="store", type="string",          dest="tabs",                                default="",                             help="")
     def parse_curve(self, p, layer, w = None, f = None):
             c = []
             if len(p)==0 :

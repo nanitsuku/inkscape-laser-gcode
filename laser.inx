@@ -6,6 +6,7 @@
     <dependency type="executable" location="extensions">inkex.py</dependency>
 
     <param name="tab" type="notebook">
+    <param name="tabs" type="notebook">
       <page name="general_tab" gui-text="General">
         <param name="laser-command" type="string" _gui-text="Laser ON Command:">M03</param>
         <param name="laser-off-command" type="string" _gui-text="Laser OFF Command:">M05</param>
