@@ -45,6 +45,8 @@ _ = gettext.gettext
 import base64
 from simplestyle import *
 import urllib2
+import subprocess
+from PIL import Image, ImageOps, ImageChops
 
 ### Check if inkex has errormsg (0.46 version doesnot have one.) Could be removed later.
 if "errormsg" not in dir(inkex):
@@ -3159,7 +3161,172 @@ class laser_gcode(inkex.Effect):
 ###
 ################################################################################
 
+    def getDocumentHeightmm(self):
+        return self.unittouu(self.getDocumentHeight())
+
+    def toPx(self, mm, dpi):
+        return mm/25.4*dpi
+
+    def getBitmaps(self):
+        global options
+
+        tmp_dir = "c:\Users\ytakagi"
+        tmp_filename = "hoge.svg"
+
+        document = copy.deepcopy(self.document)
+
+        for g in document.findall('{*}g'):
+
+            # remove gcodetools node
+            if 'gcodetools' in g.attrib:
+                g.getparent().remove(g)
+                continue
+
+            # remove not 
+            for object in g.findall('*'):
+#                inkex.debug(object.tag)
+                if object.tag.endswith('image') or object.tag.endswith('path'):
+                    if 'style' in object.attrib:
+#                        inkex.debug(object)
+                        styles = parseStyle(object.attrib['style'])
+                        styles['display'] = 'none'
+                        object.attrib['style'] = formatStyle(styles)
+#                        inkex.debug(object)
+                    else:
+                        styles={}
+                        styles['display'] = 'none'
+                        object.attrib['style'] = formatStyle(styles)
+#                        inkex.debug(object)
+                else:
+                    if 'style' in object.attrib:
+                        isEngraveObject=False
+                        for attrib in object.attrib:
+#                            inkex.debug(attrib)
+                            if attrib.endswith('label'):
+                                inkex.debug(attrib)
+                                inkex.debug(object.attrib[attrib])
+                                if object.attrib[attrib].endswith('engrave'):
+    #                                object.getparent().remove(obejct)
+                                    isEngraveObject=True
+                                    inkex.debug("its engrave")
+                                    break
+                        if not isEngraveObject:
+                            object.getparent().remove(object)
+                    
+
+#        self.document.write(tmp_dir + "/" + tmp_filename)
+        document.write(tmp_dir + "/" + tmp_filename)
+#        inkex.debug(document.tostring(root,pretty_print=True))
+
+        dpi = 100
+
+        src_image_filename = tmp_dir + '/' + tmp_filename
+        dst_image_filename = tmp_dir + '/' + tmp_filename + '.png'
+
+        completed = subprocess.call(
+            'inkscape {src} --export-png={dst} -d {dpi}'.format(
+                src = src_image_filename, dst = dst_image_filename, dpi = dpi), shell=True)
+        img = Image.open(dst_image_filename)
+        inkex.debug(img.size)
+        inkex.debug("--------------------")
+
+        gcode__ = ''
+
+        # remove unnecessary object
+
+
+        for g in document.findall('{*}g'):
+            for object in g.findall('*'):
+                isEngraveObject = False
+                id = ''
+                if 'style' in object.attrib:
+                    cx = 0
+                    cy = 0
+                    rx = 0
+                    ry = 0
+                    for attrib in object.attrib:
+                        if attrib in [ 'cx', 'cy', 'rx', 'ry']:
+                            exec( "{var} = float(object.attrib['{var}'])".format(var = attrib) )
+
+                        if attrib.endswith('label'):
+                            if object.attrib[attrib].endswith('engrave'):
+                                styles = parseStyle(object.get('style'))
+                                stroke_width = float(styles['stroke-width'])
+                                isEngraveObject = True
+
+                    svg2mm_ratio = 3.779
+
+                    if isEngraveObject:
+                        inkex.debug(rx)
+                        inkex.debug(object.attrib['id'])
+                        box = self.querySize(src_image_filename, object.attrib['id'], dpi)
+                        inkex.debug(box)
+                        dx = float(box['x'])/svg2mm_ratio
+                        dy = float(box['y'])/svg2mm_ratio
+                        width = float(box['width'])/svg2mm_ratio
+                        height = float(box['height'])/svg2mm_ratio
+
+                        box_px = (self.toPx(dx, dpi), self.toPx(dy, dpi), self.toPx(dx + width, dpi), self.toPx(dy + height, dpi))
+                        img_crop = img.crop(box_px).convert('RGBA')
+
+                        test = ImageOps.invert(img.crop(box_px).convert('RGB'))
+                        test.save(tmp_dir + '/bbb.png')
+
+                        dst_img = Image.new('RGB', img_crop.size, (0, 0, 0))
+                        white_img = Image.new('RGB', img_crop.size, (255, 255, 255))
+#                        img_crop.paste(dst_img)
+#                        dst_img.paste(img_crop, (0,0), img_crop)
+#                        img_crop.paste(dst_img,(0,0),img_crop)
+#                        img_crop.paste(img_crop,(0,0), ImageOps.invert(img_crop).split()[0])
+                        ImageOps.invert(img_crop.split()[3]).save(tmp_dir + "/aa.png")
+#                        img_crop.paste(dst_img,(0,0), img_crop.split()[3])
+                        dst_img.paste(dst_img,(0,0), ImageOps.invert(img_crop.split()[3]))
+
+                        img_crop.save(tmp_dir + '/img_crop.png')
+                        dst_img.save(tmp_dir + '/dst.png')
+
+##                        img_crop.save(tmp_dir + '/aa.png')
+
+                        white_img.paste(img_crop)
+
+                        white_img.save(tmp_dir + '/white.png')
+
+                        ImageChops.multiply(white_img, img_crop.convert('RGB')).save(tmp_dir + '/mult.png')
+
+#                        dst_img.save(tmp_dir + '/aa.png')
+
+#                        ImageOps.invert(img_crop.convert('RGB')).save(tmp_dir + '/aa.png')
+
+                        inkex.debug(img_crop.getpixel((0,0)))
+                        inkex.debug(img_crop.getpixel((0,self.toPx(width/20-2,dpi))))
+                        with open(tmp_dir + '/aa.png','rb') as f:
+                            bb = f.read()
+#                            inkex.debug(len(bb))
+                            data = self.__getPostParam__( dx, self.getDocumentHeightmm() - float(dy) - float(height), height, bb )
+#                            inkex.debug(data)
+                            gcode__ += self.__img2gco__("test", data)
+                            gcode__ += '\r\n'
+
+        return gcode__
+        inkex.debug("--------------------")
+
+    def querySize(self, filename, id, dpi):
+        # query bounding box, UPPER LEFT corner (?)
+        q = {'x':0, 'y':0, 'width':0, 'height':0}
+        for query in q.keys():
+            p = subprocess.Popen(
+               'inkscape --query-%s --query-id=%s "%s"' % (query, id, filename, ),
+               shell=True,
+               stdout=subprocess.PIPE,
+               stderr=subprocess.PIPE,
+               )
+            p.wait()
+            q[query] = p.stdout.read()
+
+        return q
+
     DEBUG=1
+      
     def toBitmap(self):
         global options
 
@@ -3302,6 +3469,9 @@ class laser_gcode(inkex.Effect):
         options.self = self
         options.doc_root = self.document.getroot()
         # define print_ function
+
+        inkex.debug(self.options)
+
         global print_
         if self.options.log_create_log :
             try :
@@ -3338,10 +3508,14 @@ class laser_gcode(inkex.Effect):
         gcode = self.laser()
 #        inkex.debug(gcode)
 
+        bitmaps = self.getBitmaps()
+
         bitmapgcode = self.toBitmap()
+
+
 #        inkex.debug(bitmapgcode)
 
-        self.export_gcode( gcode + bitmapgcode )
+        self.export_gcode( gcode + bitmapgcode + bitmaps )
 
 
 e = laser_gcode()
