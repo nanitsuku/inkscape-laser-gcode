@@ -2447,12 +2447,17 @@ class laser_gcode(inkex.Effect):
 #        self.OptionParser.add_option("",   "--travel-rate",                     action="store", type="int",            dest="travelRate",                          default=3000,                           help="")
         self.OptionParser.add_option("",   "--feed-rate",                       action="store", type="int",             dest="feedRate",                            default=800,                            help="")
 
-        self.OptionParser.add_option("",   "--overscan",                        action="store", type="float",          dest="overScan",                            default=0,                              help="")
+        self.OptionParser.add_option("",   "--overscan",                        action="store", type="float",          dest="overScan",                             default=0,                              help="")
 
         self.OptionParser.add_option("",   "--resolutionX",                     action="store", type="float",           dest="resX",                                default=0.1,                            help="")
         self.OptionParser.add_option("",   "--resolutionY",                     action="store", type="float",           dest="scanGap",                             default=0.1,                            help="")
 
+        self.OptionParser.add_option("",   "--pwm-parameter-command",           action="store", type="string",          dest="pwmParameterCommand",                 default="LaserOn",                            help="")
+        self.OptionParser.add_option("",   "--m106-option",                     action="store", type="string",          dest="m106Option",                          default="",                             help="")
+
         self.OptionParser.add_option("",   "--tabs",                            action="store", type="string",          dest="tabs",                                default="",                             help="")
+
+        
     def parse_curve(self, p, layer, w = None, f = None):
             c = []
             if len(p)==0 :
@@ -3203,6 +3208,10 @@ class laser_gcode(inkex.Effect):
     def __getPostParam__(self, dx, dy, height, imagedata):
 #        inkex.debug(self.options)
         data = {
+            "LaserOnCommand" : "M03",
+            "LaserOffCommand" : "M05",
+            "pwmParameterCommand" : "M106",
+            "m106option" : "P1",
             "LaserMin" : self.options.laserMin,
             "LaserMax" : self.options.laserMax,
             "LaserOff" : self.options.laserOff,
@@ -3210,6 +3219,7 @@ class laser_gcode(inkex.Effect):
             "travelRate" : self.options.travel_speed,
             "feedRate" : 800,
             "overScan" : self.options.overScan,
+            "flipImage" : "true",
             "sizeY" : height,
             "resX" : self.options.resX,
             "scanGap" : self.options.scanGap,
@@ -3314,8 +3324,14 @@ class laser_gcode(inkex.Effect):
             "id": "Laser Engraver",
             "penetration feed": self.options.laser_speed,
             "feed": self.options.laser_speed,
-            "gcode before path": ("G4 P0 \n" + self.options.laser_command + "\n" + "M106 P1 S" + str(int(self.options.laser_power)) + "\nG4 P" + self.options.power_delay),
-            "gcode after path": ("G4 P0 \n" + self.options.laser_off_command + "\n" + "M106 P1 S0" + "\n" + "G1 F" + self.options.travel_speed),
+            "gcode before path": ("G4 P0 \n"
+                                 + self.options.laser_command + ((" S" + str(int(self.options.laser_power))) if self.options.pwmParameterCommand == 'LaserOn' else "") + "\n" 
+                                 + (("M106 P" + self.options.m106Option + " S" + str(int(self.options.laser_power)) + "\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                 + "G4 P" + self.options.power_delay),
+            "gcode after path": ("G4 P0 \n" 
+                                + self.options.laser_off_command + "\n"
+                                + (("M106 P" + self.options.m106Option + " S0\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                + "G1 F" + self.options.travel_speed + "\n"),
         }
 
         self.get_info()

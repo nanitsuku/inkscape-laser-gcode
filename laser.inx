@@ -5,11 +5,15 @@
     <dependency type="executable" location="extensions">laser.py</dependency>
     <dependency type="executable" location="extensions">inkex.py</dependency>
 
-    <param name="tab" type="notebook">
     <param name="tabs" type="notebook">
       <page name="general_tab" gui-text="General">
         <param name="laser-command" type="string" _gui-text="Laser ON Command:">M03</param>
         <param name="laser-off-command" type="string" _gui-text="Laser OFF Command:">M05</param>
+        <param name="pwm-parameter-command" type="optiongroup" gui-text="PWM parameter">
+          <option value="LaserOn">after Laser On Command</option>
+          <option value="M106">after M106</option>
+        </param>
+        <param name="m106-option" type="string" gui-text="M106 option(e.g. FAN No.)"></param>
         <param name="travel-speed" type="int" min="0" max="15000" _gui-text="Travel Speed (mm/min or in/min):">3000</param>
         <param name="unit" type="enum" _gui-text="All Units (mm or in):">
           <item value="G21 (All units in mm)">mm</item>
