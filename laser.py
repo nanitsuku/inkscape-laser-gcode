@@ -2411,12 +2411,23 @@ class Arangement_Genetic:
 
 class laser_gcode(inkex.Effect):
 
-    def export_gcode(self,gcode):
-        gcode_pass = gcode
+    def export_gcode(self,gcode, gcode_images):
+        gcode_pass = ""
         for x in range(1,self.options.passes):
-            gcode += "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode_pass
+            gcode_pass += "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode
+
+        gcode_final = "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode_images + gcode_pass
+
         f = open(self.options.directory+self.options.file, "w")
-        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode + self.footer)
+        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_final + self.footer)
+        f.close()
+
+        f = open(self.options.directory+self.options.file+"_path.gcode", "w")
+        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_pass + self.footer)
+        f.close()
+
+        f = open(self.options.directory+self.options.file+"_bitmap.gcode", "w")
+        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_images + self.footer)
         f.close()
 
     def __init__(self):
@@ -3515,7 +3526,7 @@ class laser_gcode(inkex.Effect):
 
 #        inkex.debug(bitmapgcode)
 
-        self.export_gcode( gcode + bitmapgcode + bitmaps )
+        self.export_gcode( gcode, bitmapgcode + bitmaps )
 
 
 e = laser_gcode()
