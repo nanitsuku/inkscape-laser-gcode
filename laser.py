@@ -3496,11 +3496,11 @@ class laser_gcode(inkex.Effect):
             "feed": self.options.laser_speed,
             "gcode before path": ("G4 P0 \n"
                                  + self.options.laser_command + ((" S" + str(int(self.options.laser_power))) if self.options.pwmParameterCommand == 'LaserOn' else "") + "\n" 
-                                 + (("M106 P" + self.options.m106Option + " S" + str(int(self.options.laser_power)) + "\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                 + (("M106 " + self.options.m106Option + " S" + str(int(self.options.laser_power)) + "\n") if self.options.pwmParameterCommand == 'M106' else "")
                                  + "G4 P" + self.options.power_delay),
             "gcode after path": ("G4 P0 \n" 
                                 + self.options.laser_off_command + "\n"
-                                + (("M106 P" + self.options.m106Option + " S0\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                + (("M106 " + self.options.m106Option + " S0\n") if self.options.pwmParameterCommand == 'M106' else "")
                                 + "G1 F" + self.options.travel_speed + "\n"),
         }
 
