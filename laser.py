@@ -3398,7 +3398,7 @@ class laser_gcode(inkex.Effect):
                 aa = base64.b64decode(imagedata)
 
                 data = self.__getPostParam__( dx, doc_height - float(dy) - float(height), height, aa )
-                gcode__ += self.__img2gco__("test", data)
+                gcode__ += self.__img2gco__("test", data, extension)
                 gcode__ += '\r\n'
 
         return gcode__
@@ -3428,11 +3428,11 @@ class laser_gcode(inkex.Effect):
         }
         return data
 
-    def __encodeMultipart__(self, dict):
+    def __encodeMultipart__(self, dict, image_type):
         boundary = u"--------POSTDATApostdata"
         encoding = "utf-8"
         disposition = u'Content-Disposition: form-data; name="%s"'
-        disposition2 = u'Content-Disposition: form-data; name="%s"; filename="hogehoge.png"'
+        disposition2 = u'Content-Disposition: form-data; name="%s"; filename="hogehoge.%s"'
         lines = bytearray(b'')
 
         for k, v in dict.items():
@@ -3440,9 +3440,15 @@ class laser_gcode(inkex.Effect):
             lines += ('\r\n').encode('utf-8')
 
             if k == 'image':
-                lines += (disposition2 % k).encode('utf-8')
+                lines += (disposition2 % (k, image_type)).encode('utf-8')
                 lines += ('\r\n').encode('utf-8')
-                lines += ("Content-Type: image/png").encode('utf-8')
+                if image_type == 'jpg':
+                    image_type_c = "jpeg"
+                elif image_type == 'png':
+                    image_type_c = 'png'
+                else:
+                    image_type_c = 'png'
+                lines += ("Content-Type: image/" + image_type_c ).encode('utf-8')
             else:
                 lines += (disposition % k).encode('utf-8')
 
@@ -3465,7 +3471,7 @@ class laser_gcode(inkex.Effect):
 
         return lines
 
-    def __img2gco__(self, filepath, data):
+    def __img2gco__(self, filepath, data, image_type):
         url = "http://img2gco.appspot.com/gcode.php"
 
         boundary = u"--------POSTDATApostdata"
@@ -3477,7 +3483,7 @@ class laser_gcode(inkex.Effect):
                         % boundary.encode(encoding))
 
 
-        postdata = self.__encodeMultipart__(data)
+        postdata = self.__encodeMultipart__(data, image_type)
 
         conn = urllib2.urlopen(req, postdata)
 
