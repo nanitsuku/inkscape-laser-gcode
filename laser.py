@@ -2485,6 +2485,7 @@ class laser_gcode(inkex.Effect):
 
         self.OptionParser.add_option("",   "--tabs",                            action="store", type="string",          dest="tabs",                                default="",                             help="")
 
+        self.first_pass = True
         
     def parse_curve(self, p, layer, w = None, f = None):
             c = []
@@ -2602,6 +2603,10 @@ class laser_gcode(inkex.Effect):
 
 
     def check_dir(self):
+        if self.first_pass:
+            self.first_pass = False
+        else:
+            return True
         if self.options.directory[-1] not in ["/","\\"]:
             if "\\" in self.options.directory :
                 self.options.directory += "\\"
