@@ -2411,19 +2411,32 @@ class Arangement_Genetic:
 
 class laser_gcode(inkex.Effect):
 
-    def export_gcode(self,gcode, gcode_images):
-        gcode_pass = ""
-        for x in range(1,self.options.passes):
-            gcode_pass += "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode
+    def export_gcode(self,gcode_primary_pass, gcode_secondary_pass, gcode_images):
+        gcode_primary_passes = ""
+        for x in range(self.options.primary_passes):
+            gcode_primary_passes += "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode_primary_pass
 
-        gcode_final = "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode_images + gcode_pass
+        gcode_secondary_passes = ""
+        for x in range(self.options.secondary_passes):
+            gcode_secondary_passes += "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode_secondary_pass
+
+#        gcode_final = "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode_images + gcode_primary_pass + gcode_secondary_pass
 
         f = open(self.options.directory+self.options.file, "w")
-        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_final + self.footer)
+        f.write("G91\nG1 Z-" + self.options.pass_depth + "\nG90\n")
+        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n")
+        f.write(gcode_primary_passes)
+        f.write(gcode_secondary_passes)
+        f.write(gcode_images)
+        f.write(self.footer)
         f.close()
 
-        f = open(self.options.directory+self.options.file+"_path.gcode", "w")
-        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_pass + self.footer)
+        f = open(self.options.directory+self.options.file+"_path_pass1.gcode", "w")
+        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_primary_passes + self.footer)
+        f.close()
+
+        f = open(self.options.directory+self.options.file+"_path_pass2.gcode", "w")
+        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_secondary_passes + self.footer)
         f.close()
 
         f = open(self.options.directory+self.options.file+"_bitmap.gcode", "w")
@@ -2439,8 +2452,10 @@ class laser_gcode(inkex.Effect):
         self.OptionParser.add_option("",   "--laser-off-command",               action="store", type="string",          dest="laser_off_command",                   default="M05",                         help="Laser gcode end command")
         self.OptionParser.add_option("",   "--laser-speed",                     action="store", type="int",             dest="laser_speed",                         default="750",                          help="Laser speed (mm/min)")
         self.OptionParser.add_option("",   "--travel-speed",                    action="store", type="string",          dest="travel_speed",                        default="3000",                         help="Travel speed (mm/min)")
-        self.OptionParser.add_option("",   "--laser-power",                     action="store", type="int",             dest="laser_power",                         default="255",                          help="S# is 256 or 10000 for full power")
-        self.OptionParser.add_option("",   "--passes",                          action="store", type="int",             dest="passes",                              default="1",                            help="Quantity of passes")
+        self.OptionParser.add_option("",   "--primary-laser-power",             action="store", type="int",             dest="primary_laser_power",                 default="255",                          help="S# is 256 or 10000 for full power")
+        self.OptionParser.add_option("",   "--secondary-laser-power",           action="store", type="int",             dest="secondary_laser_power",               default="255",                          help="S# is 256 or 10000 for full power")
+        self.OptionParser.add_option("",   "--primary-passes",                  action="store", type="int",             dest="primary_passes",                      default="1",                            help="Quantity of passes")
+        self.OptionParser.add_option("",   "--secondary-passes",                action="store", type="int",             dest="secondary_passes",                    default="1",                            help="Quantity of passes")
         self.OptionParser.add_option("",   "--pass-depth",                      action="store", type="string",          dest="pass_depth",                          default="1",                            help="Depth of laser cut")
         self.OptionParser.add_option("",   "--power-delay",                     action="store", type="string",          dest="power_delay",                         default="0",                          help="Laser power-on delay (ms)")
         self.OptionParser.add_option("",   "--suppress-all-messages",           action="store", type="inkbool",         dest="suppress_all_messages",               default=True,                           help="Hide messages during g-code generation")
@@ -3500,14 +3515,15 @@ class laser_gcode(inkex.Effect):
             self.orientation( self.layers[min(0,len(self.layers)-1)] )
             self.get_info()
 
+# first pass
         self.tools = {
             "name": "Laser Engraver",
             "id": "Laser Engraver",
             "penetration feed": self.options.laser_speed,
             "feed": self.options.laser_speed,
             "gcode before path": ("G4 P0 \n"
-                                 + self.options.laser_command + ((" S" + str(int(self.options.laser_power))) if self.options.pwmParameterCommand == 'LaserOn' else "") + "\n" 
-                                 + (("M106 " + self.options.m106Option + " S" + str(int(self.options.laser_power)) + "\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                 + self.options.laser_command + ((" S" + str(int(self.options.primary_laser_power))) if self.options.pwmParameterCommand == 'LaserOn' else "") + "\n" 
+                                 + (("M106 " + self.options.m106Option + " S" + str(int(self.options.primary_laser_power)) + "\n") if self.options.pwmParameterCommand == 'M106' else "")
                                  + "G4 P" + self.options.power_delay),
             "gcode after path": ("G4 P0 \n" 
                                 + self.options.laser_off_command + "\n"
@@ -3516,8 +3532,26 @@ class laser_gcode(inkex.Effect):
         }
 
         self.get_info()
-        gcode = self.laser()
-#        inkex.debug(gcode)
+        gcode_primary_pass = self.laser()
+
+# secondary pass
+        self.tools = {
+            "name": "Laser Engraver",
+            "id": "Laser Engraver",
+            "penetration feed": self.options.laser_speed,
+            "feed": self.options.laser_speed,
+            "gcode before path": ("G4 P0 \n"
+                                 + self.options.laser_command + ((" S" + str(int(self.options.secondarylaser_power))) if self.options.pwmParameterCommand == 'LaserOn' else "") + "\n" 
+                                 + (("M106 " + self.options.m106Option + " S" + str(int(self.options.secondary_laser_power)) + "\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                 + "G4 P" + self.options.power_delay),
+            "gcode after path": ("G4 P0 \n" 
+                                + self.options.laser_off_command + "\n"
+                                + (("M106 " + self.options.m106Option + " S0\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                + "G1 F" + self.options.travel_speed + "\n"),
+        }
+
+        self.get_info()
+        gcode_secondary_pass = self.laser()
 
         bitmaps = self.getBitmaps()
 
@@ -3526,7 +3560,7 @@ class laser_gcode(inkex.Effect):
 
 #        inkex.debug(bitmapgcode)
 
-        self.export_gcode( gcode, bitmapgcode + bitmaps )
+        self.export_gcode( gcode_primary_pass, gcode_secondary_pass, bitmapgcode + bitmaps )
 
 
 e = laser_gcode()
