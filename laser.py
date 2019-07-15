@@ -3507,12 +3507,20 @@ class laser_gcode(inkex.Effect):
 ###        Main function of Gcodetools class
 ###
 ################################################################################
+    def remove_gcode_elements(self, document, except_orientation = True):
+        # remove gcodetools elements
+        for e in document.xpath('//ns:*[@gcodetools]', namespaces = {'ns':'http://www.w3.org/2000/svg'}):
+            if except_orientation==False or 'orientation' not in e.attrib['gcodetools']:
+                e.getparent().remove(e)
+
     def effect(self) :
         global options
         options = self.options
         options.self = self
 
         self.tempdir = tempfile.gettempdir()
+
+        self.remove_gcode_elements(self.document, False)
 
         options.doc_root = self.document.getroot()
         # define print_ function
@@ -3552,6 +3560,7 @@ class laser_gcode(inkex.Effect):
                                 + "G1 F" + self.options.travel_speed + "\n"),
         }
 
+        self.remove_gcode_elements(self.document)
         self.get_info()
         gcode_primary_pass = self.laser()
 
@@ -3571,6 +3580,7 @@ class laser_gcode(inkex.Effect):
                                 + "G1 F" + self.options.travel_speed + "\n"),
         }
 
+        self.remove_gcode_elements(self.document)
         self.get_info()
         gcode_secondary_pass = self.laser()
 
