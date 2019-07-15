@@ -47,6 +47,7 @@ from simplestyle import *
 import urllib2
 import subprocess
 from PIL import Image, ImageOps, ImageChops
+import tempfile
 
 ### Check if inkex has errormsg (0.46 version doesnot have one.) Could be removed later.
 if "errormsg" not in dir(inkex):
@@ -3201,7 +3202,7 @@ class laser_gcode(inkex.Effect):
     def getBitmaps(self):
         global options
 
-        tmp_dir = "c:\Users\ytakagi"
+        tmp_dir = self.tempdir
         tmp_filename = "hoge.svg"
 
         document = copy.deepcopy(self.document)
@@ -3400,6 +3401,9 @@ class laser_gcode(inkex.Effect):
 
                 aa = base64.b64decode(imagedata)
 
+                with open(self.tempdir + "/" + "image.png", "wb") as f:
+                    f.write(aa)
+
                 data = self.__getPostParam__( dx, doc_height - float(dy) - float(height), height, aa )
                 gcode__ += self.__img2gco__("test", data, extension)
                 gcode__ += '\r\n'
@@ -3507,6 +3511,9 @@ class laser_gcode(inkex.Effect):
         global options
         options = self.options
         options.self = self
+
+        self.tempdir = tempfile.gettempdir()
+
         options.doc_root = self.document.getroot()
         # define print_ function
 
