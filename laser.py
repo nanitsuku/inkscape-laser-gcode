@@ -3310,6 +3310,9 @@ class laser_gcode(inkex.Effect):
 #                        img_crop.paste(dst_img,(0,0),img_crop)
 #                        img_crop.paste(img_crop,(0,0), ImageOps.invert(img_crop).split()[0])
                         ImageOps.invert(img_crop.split()[3]).save(tmp_dir + "/aa.png")
+
+                        img_crop.save(tmp_dir + "/aa.png")
+
 #                        img_crop.paste(dst_img,(0,0), img_crop.split()[3])
                         dst_img.paste(dst_img,(0,0), ImageOps.invert(img_crop.split()[3]))
 
