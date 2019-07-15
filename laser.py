@@ -3339,7 +3339,7 @@ class laser_gcode(inkex.Effect):
 #                            inkex.debug(len(bb))
                             data = self.__getPostParam__( dx, self.getDocumentHeightmm() - float(dy) - float(height), height, bb )
 #                            inkex.debug(data)
-                            gcode__ += self.__img2gco__("test", data)
+                            gcode__ += self.__img2gco__("test", data, 'png')
                             gcode__ += '\r\n'
 
         return gcode__
