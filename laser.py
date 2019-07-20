@@ -2440,6 +2440,7 @@ class laser_gcode(inkex.Effect):
         f.write(self.footer)
         f.close()
 
+        if self.options.separate_gcode:
         f = open(self.options.directory+self.options.file+"_path_pass1.gcode", "w")
         f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_primary_passes + self.footer)
         f.close()
@@ -2493,6 +2494,10 @@ class laser_gcode(inkex.Effect):
         self.OptionParser.add_option("",   "--m106-option",                     action="store", type="string",          dest="m106Option",                          default="",                             help="")
 
         self.OptionParser.add_option("",   "--tabs",                            action="store", type="string",          dest="tabs",                                default="",                             help="")
+
+        self.OptionParser.add_option("",   "--raster-first",                    action="store", type="inkbool",         dest="raster_first",                        default=False,                          help="raster first, then cut")
+
+        self.OptionParser.add_option("",   "--separate-gcode",                  action="store", type="inkbool",         dest="separate_gcode",                      default=False,                          help="separate files for primary/secondary pass and raster gcode")
 
         self.first_pass = True
         

@@ -47,6 +47,7 @@
       </page>
       <page name="option_tab" gui-text="Option">
         <param name="raster-first" type="boolean" _gui-text="raster first, then cut">true</param>
+        <param name="separate-gcode" type="boolean" _gui-text="output separate files for primary/secondary pass and raster gcode">true</param>
       </page>
     </param>
 
