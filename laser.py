@@ -3252,7 +3252,7 @@ class laser_gcode(inkex.Effect):
             # remove not 
             for object in g.findall('*'):
 #                inkex.debug(object.tag)
-                if object.tag.endswith('image') or object.tag.endswith('path'):
+                if object.tag.endswith('image'):
                     if 'style' in object.attrib:
 #                        inkex.debug(object)
                         styles = parseStyle(object.attrib['style'])
