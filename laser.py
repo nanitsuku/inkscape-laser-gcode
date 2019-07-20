@@ -103,6 +103,7 @@ G90
 intersection_recursion_depth = 10
 intersection_tolerance = 0.00001
 
+engrave_label = 'engrave'
 cut_label = 'cut'
 
 styles = {
@@ -3271,7 +3272,7 @@ class laser_gcode(inkex.Effect):
                             if attrib.endswith('label'):
                                 inkex.debug(attrib)
                                 inkex.debug(object.attrib[attrib])
-                                if object.attrib[attrib].endswith('engrave'):
+                                if object.attrib[attrib].endswith(engrave_label):
     #                                object.getparent().remove(obejct)
                                     isEngraveObject=True
                                     inkex.debug("its engrave")
@@ -3303,7 +3304,7 @@ class laser_gcode(inkex.Effect):
                             exec( "{var} = float(object.attrib['{var}'])".format(var = attrib) )
 
                         if attrib.endswith('label'):
-                            if object.attrib[attrib].endswith('engrave'):
+                            if object.attrib[attrib].endswith(engrave_label):
                                 styles = parseStyle(object.get('style'))
                                 stroke_width = float(styles['stroke-width'])
                                 isEngraveObject = True
