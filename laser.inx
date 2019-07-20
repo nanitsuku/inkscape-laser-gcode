@@ -45,6 +45,9 @@
         <param name="resolutionX" type="float" min="0" max="10" _gui-text="Resolution X(mm):">0.1</param>
         <param name="resolutionY" type="float" min="0" max="10" _gui-text="Resolution Y(mm):">0.1</param>
       </page>
+      <page name="option_tab" gui-text="Option">
+        <param name="raster-first" type="boolean" _gui-text="raster first, then cut">true</param>
+      </page>
     </param>
 
 

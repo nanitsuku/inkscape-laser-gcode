@@ -2428,9 +2428,15 @@ class laser_gcode(inkex.Effect):
         f = open(self.options.directory+self.options.file, "w")
         f.write("G91\nG1 Z-" + self.options.pass_depth + "\nG90\n")
         f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n")
+        if not self.options.raster_first:
         f.write(gcode_primary_passes)
         f.write(gcode_secondary_passes)
         f.write(gcode_images)
+        else:
+            f.write(gcode_images)
+            f.write(gcode_primary_passes)
+            f.write(gcode_secondary_passes)
+
         f.write(self.footer)
         f.close()
 
