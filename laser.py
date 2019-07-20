@@ -103,6 +103,8 @@ G90
 intersection_recursion_depth = 10
 intersection_tolerance = 0.00001
 
+cut_label = 'cut'
+
 styles = {
         "loft_style" : {
                 'main curve':    simplestyle.formatStyle({ 'stroke': '#88f', 'fill': 'none', 'stroke-width':'1', 'marker-end':'url(#Arrow2Mend)' }),
@@ -3112,8 +3114,27 @@ class laser_gcode(inkex.Effect):
                 dxfpoints = []
                 for path in paths[layer] :
                     print_(str(layer))
+#                    path_element = self.document.xpath('//*[@id="{0}"]'.format(path.attrib['id']), namespaces=inkex.NSS)
+                    is_cut = False
+                    label_exist = False
+                    for k, v in path.attrib.items():
+                        if k.endswith('label') and v.endswith(cut_label):
+                            is_cut = True
+                            label_exist = True
+                            break
+                    if label_exist and not is_cut:
+                        continue
+
                     if "d" not in path.keys() :
                         self.error(_("Warning: One or more paths dont have 'd' parameter, try to Ungroup (Ctrl+Shift+G) and Object to Path (Ctrl+Shift+C)!"),"selection_contains_objects_that_are_not_paths")
+                        continue
+
+                    parent = path.getparent()
+                    for k, v in parent.attrib.items():
+                        if k.endswith('label') and v.endswith(cut_label):
+                            is_cut = True
+                            break
+                    if not is_cut:
                         continue
                     csp = cubicsuperpath.parsePath(path.get("d"))
                     csp = self.apply_transforms(path, csp)
