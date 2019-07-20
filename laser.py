@@ -2432,9 +2432,9 @@ class laser_gcode(inkex.Effect):
         f.write("G91\nG1 Z-" + self.options.pass_depth + "\nG90\n")
         f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n")
         if not self.options.raster_first:
-        f.write(gcode_primary_passes)
-        f.write(gcode_secondary_passes)
-        f.write(gcode_images)
+            f.write(gcode_primary_passes)
+            f.write(gcode_secondary_passes)
+            f.write(gcode_images)
         else:
             f.write(gcode_images)
             f.write(gcode_primary_passes)
@@ -2444,17 +2444,17 @@ class laser_gcode(inkex.Effect):
         f.close()
 
         if self.options.separate_gcode:
-        f = open(self.options.directory+self.options.file+"_path_pass1.gcode", "w")
-        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_primary_passes + self.footer)
-        f.close()
+            f = open(self.options.directory+self.options.file+"_path_pass1.gcode", "w")
+            f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_primary_passes + self.footer)
+            f.close()
 
-        f = open(self.options.directory+self.options.file+"_path_pass2.gcode", "w")
-        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_secondary_passes + self.footer)
-        f.close()
+            f = open(self.options.directory+self.options.file+"_path_pass2.gcode", "w")
+            f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_secondary_passes + self.footer)
+            f.close()
 
-        f = open(self.options.directory+self.options.file+"_bitmap.gcode", "w")
-        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_images + self.footer)
-        f.close()
+            f = open(self.options.directory+self.options.file+"_bitmap.gcode", "w")
+            f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_images + self.footer)
+            f.close()
 
     def __init__(self):
         inkex.Effect.__init__(self)
@@ -3276,7 +3276,7 @@ class laser_gcode(inkex.Effect):
                                 'inkscape {src} --export-png={dst} --export-id={id} --export-id-only --export-dpi=200'.format(
                                 src = src_image_filename, dst = tmp_dir + '/' + tmp_filename + '_' + object.attrib['id'] + '.png',
                                 id = object.attrib['id']), shell=True)
-                    
+
         dpi = 100
         gcode__ = ''
 
