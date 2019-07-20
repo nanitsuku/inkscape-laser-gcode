@@ -3244,6 +3244,11 @@ class laser_gcode(inkex.Effect):
                                     break
                         if not isEngraveObject:
                             object.getparent().remove(object)
+                        else:
+                            completed = subprocess.call(
+                                'inkscape {src} --export-png={dst} --export-id={id} --export-id-only --export-dpi=200'.format(
+                                src = src_image_filename, dst = tmp_dir + '/' + tmp_filename + '_' + object.attrib['id'] + '.png',
+                                id = object.attrib['id']), shell=True)
                     
 
 #        self.document.write(tmp_dir + "/" + tmp_filename)
@@ -3332,9 +3337,7 @@ class laser_gcode(inkex.Effect):
 
 #                        ImageOps.invert(img_crop.convert('RGB')).save(tmp_dir + '/aa.png')
 
-                        inkex.debug(img_crop.getpixel((0,0)))
-                        inkex.debug(img_crop.getpixel((0,self.toPx(width/20-2,dpi))))
-                        with open(tmp_dir + '/aa.png','rb') as f:
+                        with open(tmp_dir + '/' + tmp_filename + '_' + object.attrib['id'] + '.png', 'rb') as f:
                             bb = f.read()
 #                            inkex.debug(len(bb))
                             data = self.__getPostParam__( dx, self.getDocumentHeightmm() - float(dy) - float(height), height, bb )
