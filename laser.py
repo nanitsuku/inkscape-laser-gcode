@@ -3266,8 +3266,6 @@ class laser_gcode(inkex.Effect):
                         isEngraveObject=False
                         for attrib in object.attrib:
                             if attrib.endswith('label'):
-                                inkex.debug(attrib)
-                                inkex.debug(object.attrib[attrib])
                                 if object.attrib[attrib].endswith(engrave_label):
                                     isEngraveObject=True
                                     break
@@ -3386,7 +3384,6 @@ class laser_gcode(inkex.Effect):
         return gcode__
 
     def __getPostParam__(self, dx, dy, height, imagedata):
-#        inkex.debug(self.options)
         data = {
             "LaserOnCommand" : "M03",
             "LaserOffCommand" : "M05",
