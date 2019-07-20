@@ -3578,7 +3578,6 @@ class laser_gcode(inkex.Effect):
         }
 
         self.remove_gcode_elements(self.document)
-        self.get_info()
         gcode_primary_pass = self.laser()
 
 # secondary pass
@@ -3588,15 +3587,11 @@ class laser_gcode(inkex.Effect):
                                  + "G4 P" + self.options.power_delay)
 
         self.remove_gcode_elements(self.document)
-        self.get_info()
         gcode_secondary_pass = self.laser()
 
+# bitmap (raster) pass
         bitmaps = self.getBitmaps()
-
         bitmapgcode = self.toBitmap()
-
-
-#        inkex.debug(bitmapgcode)
 
         self.export_gcode( gcode_primary_pass, gcode_secondary_pass, bitmapgcode + bitmaps )
 
