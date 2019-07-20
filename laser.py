@@ -1358,7 +1358,7 @@ def cubic_solver(a,b,c,d):
 ################################################################################
 
 def print_(*arg):
-    f = open(options.log_filename,"a")
+    f = open(options.directory + "/" + options.log_filename,"a")
     for s in arg :
         s = str(unicode(s).encode('unicode_escape'))+" "
         f.write( s )
@@ -2472,7 +2472,7 @@ class laser_gcode(inkex.Effect):
         self.OptionParser.add_option("",   "--power-delay",                     action="store", type="string",          dest="power_delay",                         default="0",                          help="Laser power-on delay (ms)")
         self.OptionParser.add_option("",   "--suppress-all-messages",           action="store", type="inkbool",         dest="suppress_all_messages",               default=True,                           help="Hide messages during g-code generation")
         self.OptionParser.add_option("",   "--create-log",                      action="store", type="inkbool",         dest="log_create_log",                      default=False,                          help="Create log files")
-        self.OptionParser.add_option("",   "--log-filename",                    action="store", type="string",          dest="log_filename",                        default='',                             help="Create log files")
+        self.OptionParser.add_option("",   "--log-filename",                    action="store", type="string",          dest="log_filename",                        default='lasergcode.log',                             help="Create log files")
         self.OptionParser.add_option("",   "--engraving-draw-calculation-paths",action="store", type="inkbool",         dest="engraving_draw_calculation_paths",    default=False,                          help="Draw additional graphics to debug engraving path")
         self.OptionParser.add_option("",   "--unit",                            action="store", type="string",          dest="unit",                                default="G21 (All units in mm)",        help="Units either mm or inches")
         self.OptionParser.add_option("",   "--active-tab",                      action="store", type="string",          dest="active_tab",                          default="",                             help="Defines which tab is active")
@@ -3568,8 +3568,8 @@ class laser_gcode(inkex.Effect):
         global print_
         if self.options.log_create_log :
             try :
-                if os.path.isfile(self.options.log_filename) : os.remove(self.options.log_filename)
-                f = open(self.options.log_filename,"a")
+                if os.path.isfile(self.options.directory + "/" + self.options.log_filename) : os.remove(self.options.log_filename)
+                f = open(self.options.directory + "/" + self.options.log_filename,"a")
                 f.write("Gcodetools log file.\nStarted at %s.\n%s\n" % (time.strftime("%d.%m.%Y %H:%M:%S"),options.log_filename))
                 f.write("%s tab is active.\n" % self.options.active_tab)
                 f.close()
