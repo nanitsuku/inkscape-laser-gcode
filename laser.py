@@ -45,6 +45,11 @@ _ = gettext.gettext
 import base64
 from simplestyle import *
 import urllib2
+import subprocess
+from PIL import Image, ImageOps, ImageChops
+import tempfile
+import gzip
+from StringIO import StringIO
 
 ### Check if inkex has errormsg (0.46 version doesnot have one.) Could be removed later.
 if "errormsg" not in dir(inkex):
@@ -2409,12 +2414,36 @@ class Arangement_Genetic:
 
 class laser_gcode(inkex.Effect):
 
-    def export_gcode(self,gcode):
-        gcode_pass = gcode
-        for x in range(1,self.options.passes):
-            gcode += "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode_pass
+    def export_gcode(self,gcode_primary_pass, gcode_secondary_pass, gcode_images):
+        gcode_primary_passes = ""
+        for x in range(self.options.primary_passes):
+            gcode_primary_passes += "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode_primary_pass
+
+        gcode_secondary_passes = ""
+        for x in range(self.options.secondary_passes):
+            gcode_secondary_passes += "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode_secondary_pass
+
+#        gcode_final = "G91\nG1 Z-" + self.options.pass_depth + "\nG90\n" + gcode_images + gcode_primary_pass + gcode_secondary_pass
+
         f = open(self.options.directory+self.options.file, "w")
-        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode + self.footer)
+        f.write("G91\nG1 Z-" + self.options.pass_depth + "\nG90\n")
+        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n")
+        f.write(gcode_primary_passes)
+        f.write(gcode_secondary_passes)
+        f.write(gcode_images)
+        f.write(self.footer)
+        f.close()
+
+        f = open(self.options.directory+self.options.file+"_path_pass1.gcode", "w")
+        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_primary_passes + self.footer)
+        f.close()
+
+        f = open(self.options.directory+self.options.file+"_path_pass2.gcode", "w")
+        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_secondary_passes + self.footer)
+        f.close()
+
+        f = open(self.options.directory+self.options.file+"_bitmap.gcode", "w")
+        f.write(self.options.laser_off_command + " S0" + "\n" + self.header + "G1 F" + self.options.travel_speed + "\n" + gcode_images + self.footer)
         f.close()
 
     def __init__(self):
@@ -2426,8 +2455,10 @@ class laser_gcode(inkex.Effect):
         self.OptionParser.add_option("",   "--laser-off-command",               action="store", type="string",          dest="laser_off_command",                   default="M05",                         help="Laser gcode end command")
         self.OptionParser.add_option("",   "--laser-speed",                     action="store", type="int",             dest="laser_speed",                         default="750",                          help="Laser speed (mm/min)")
         self.OptionParser.add_option("",   "--travel-speed",                    action="store", type="string",          dest="travel_speed",                        default="3000",                         help="Travel speed (mm/min)")
-        self.OptionParser.add_option("",   "--laser-power",                     action="store", type="int",             dest="laser_power",                         default="255",                          help="S# is 256 or 10000 for full power")
-        self.OptionParser.add_option("",   "--passes",                          action="store", type="int",             dest="passes",                              default="1",                            help="Quantity of passes")
+        self.OptionParser.add_option("",   "--primary-laser-power",             action="store", type="int",             dest="primary_laser_power",                 default="255",                          help="S# is 256 or 10000 for full power")
+        self.OptionParser.add_option("",   "--secondary-laser-power",           action="store", type="int",             dest="secondary_laser_power",               default="255",                          help="S# is 256 or 10000 for full power")
+        self.OptionParser.add_option("",   "--primary-passes",                  action="store", type="int",             dest="primary_passes",                      default="1",                            help="Quantity of passes")
+        self.OptionParser.add_option("",   "--secondary-passes",                action="store", type="int",             dest="secondary_passes",                    default="1",                            help="Quantity of passes")
         self.OptionParser.add_option("",   "--pass-depth",                      action="store", type="string",          dest="pass_depth",                          default="1",                            help="Depth of laser cut")
         self.OptionParser.add_option("",   "--power-delay",                     action="store", type="string",          dest="power_delay",                         default="0",                          help="Laser power-on delay (ms)")
         self.OptionParser.add_option("",   "--suppress-all-messages",           action="store", type="inkbool",         dest="suppress_all_messages",               default=True,                           help="Hide messages during g-code generation")
@@ -2457,6 +2488,7 @@ class laser_gcode(inkex.Effect):
 
         self.OptionParser.add_option("",   "--tabs",                            action="store", type="string",          dest="tabs",                                default="",                             help="")
 
+        self.first_pass = True
         
     def parse_curve(self, p, layer, w = None, f = None):
             c = []
@@ -2574,6 +2606,10 @@ class laser_gcode(inkex.Effect):
 
 
     def check_dir(self):
+        if self.first_pass:
+            self.first_pass = False
+        else:
+            return True
         if self.options.directory[-1] not in ["/","\\"]:
             if "\\" in self.options.directory :
                 self.options.directory += "\\"
@@ -3159,7 +3195,178 @@ class laser_gcode(inkex.Effect):
 ###
 ################################################################################
 
+    def getDocumentHeightmm(self):
+        return self.unittouu(self.getDocumentHeight())
+
+    def toPx(self, mm, dpi):
+        return mm/25.4*dpi
+
+    def getBitmaps(self):
+        global options
+
+        tmp_dir = self.tempdir
+        tmp_filename = "hoge.svg"
+
+        document = copy.deepcopy(self.document)
+
+        for g in document.findall('{*}g'):
+
+            # remove gcodetools node
+            if 'gcodetools' in g.attrib:
+                g.getparent().remove(g)
+                continue
+
+            # remove not 
+            for object in g.findall('*'):
+#                inkex.debug(object.tag)
+                if object.tag.endswith('image') or object.tag.endswith('path'):
+                    if 'style' in object.attrib:
+#                        inkex.debug(object)
+                        styles = parseStyle(object.attrib['style'])
+                        styles['display'] = 'none'
+                        object.attrib['style'] = formatStyle(styles)
+#                        inkex.debug(object)
+                    else:
+                        styles={}
+                        styles['display'] = 'none'
+                        object.attrib['style'] = formatStyle(styles)
+#                        inkex.debug(object)
+                else:
+                    if 'style' in object.attrib:
+                        isEngraveObject=False
+                        for attrib in object.attrib:
+#                            inkex.debug(attrib)
+                            if attrib.endswith('label'):
+                                inkex.debug(attrib)
+                                inkex.debug(object.attrib[attrib])
+                                if object.attrib[attrib].endswith('engrave'):
+    #                                object.getparent().remove(obejct)
+                                    isEngraveObject=True
+                                    inkex.debug("its engrave")
+                                    break
+                        if not isEngraveObject:
+                            object.getparent().remove(object)
+                        else:
+                            completed = subprocess.call(
+                                'inkscape {src} --export-png={dst} --export-id={id} --export-id-only --export-dpi=200'.format(
+                                src = src_image_filename, dst = tmp_dir + '/' + tmp_filename + '_' + object.attrib['id'] + '.png',
+                                id = object.attrib['id']), shell=True)
+                    
+
+#        self.document.write(tmp_dir + "/" + tmp_filename)
+        document.write(tmp_dir + "/" + tmp_filename)
+#        inkex.debug(document.tostring(root,pretty_print=True))
+
+        dpi = 100
+
+        src_image_filename = tmp_dir + '/' + tmp_filename
+        dst_image_filename = tmp_dir + '/' + tmp_filename + '.png'
+
+        completed = subprocess.call(
+            'inkscape {src} --export-png={dst} -d {dpi}'.format(
+                src = src_image_filename, dst = dst_image_filename, dpi = dpi), shell=True)
+        img = Image.open(dst_image_filename)
+        inkex.debug(img.size)
+        inkex.debug("--------------------")
+
+        gcode__ = ''
+
+        # remove unnecessary object
+
+
+        for g in document.findall('{*}g'):
+            for object in g.findall('*'):
+                isEngraveObject = False
+                id = ''
+                if 'style' in object.attrib:
+                    cx = 0
+                    cy = 0
+                    rx = 0
+                    ry = 0
+                    for attrib in object.attrib:
+                        if attrib in [ 'cx', 'cy', 'rx', 'ry']:
+                            exec( "{var} = float(object.attrib['{var}'])".format(var = attrib) )
+
+                        if attrib.endswith('label'):
+                            if object.attrib[attrib].endswith('engrave'):
+                                styles = parseStyle(object.get('style'))
+                                stroke_width = float(styles['stroke-width'])
+                                isEngraveObject = True
+
+                    svg2mm_ratio = 3.779
+
+                    if isEngraveObject:
+                        inkex.debug(rx)
+                        inkex.debug(object.attrib['id'])
+                        box = self.querySize(src_image_filename, object.attrib['id'], dpi)
+                        inkex.debug(box)
+                        dx = float(box['x'])/svg2mm_ratio
+                        dy = float(box['y'])/svg2mm_ratio
+                        width = float(box['width'])/svg2mm_ratio
+                        height = float(box['height'])/svg2mm_ratio
+
+                        box_px = (self.toPx(dx, dpi), self.toPx(dy, dpi), self.toPx(dx + width, dpi), self.toPx(dy + height, dpi))
+                        img_crop = img.crop(box_px).convert('RGBA')
+
+                        test = ImageOps.invert(img.crop(box_px).convert('RGB'))
+                        test.save(tmp_dir + '/bbb.png')
+
+                        dst_img = Image.new('RGB', img_crop.size, (0, 0, 0))
+                        white_img = Image.new('RGB', img_crop.size, (255, 255, 255))
+#                        img_crop.paste(dst_img)
+#                        dst_img.paste(img_crop, (0,0), img_crop)
+#                        img_crop.paste(dst_img,(0,0),img_crop)
+#                        img_crop.paste(img_crop,(0,0), ImageOps.invert(img_crop).split()[0])
+                        ImageOps.invert(img_crop.split()[3]).save(tmp_dir + "/aa.png")
+
+                        img_crop.save(tmp_dir + "/aa.png")
+
+#                        img_crop.paste(dst_img,(0,0), img_crop.split()[3])
+                        dst_img.paste(dst_img,(0,0), ImageOps.invert(img_crop.split()[3]))
+
+                        img_crop.save(tmp_dir + '/img_crop.png')
+                        dst_img.save(tmp_dir + '/dst.png')
+
+##                        img_crop.save(tmp_dir + '/aa.png')
+
+                        white_img.paste(img_crop)
+
+                        white_img.save(tmp_dir + '/white.png')
+
+                        ImageChops.multiply(white_img, img_crop.convert('RGB')).save(tmp_dir + '/mult.png')
+
+#                        dst_img.save(tmp_dir + '/aa.png')
+
+#                        ImageOps.invert(img_crop.convert('RGB')).save(tmp_dir + '/aa.png')
+
+                        with open(tmp_dir + '/' + tmp_filename + '_' + object.attrib['id'] + '.png', 'rb') as f:
+                            bb = f.read()
+#                            inkex.debug(len(bb))
+                            data = self.__getPostParam__( dx, self.getDocumentHeightmm() - float(dy) - float(height), height, bb )
+#                            inkex.debug(data)
+                            gcode__ += self.__img2gco__("test", data, 'png')
+                            gcode__ += '\r\n'
+
+        return gcode__
+        inkex.debug("--------------------")
+
+    def querySize(self, filename, id, dpi):
+        # query bounding box, UPPER LEFT corner (?)
+        q = {'x':0, 'y':0, 'width':0, 'height':0}
+        for query in q.keys():
+            p = subprocess.Popen(
+               'inkscape --query-%s --query-id=%s "%s"' % (query, id, filename, ),
+               shell=True,
+               stdout=subprocess.PIPE,
+               stderr=subprocess.PIPE,
+               )
+            p.wait()
+            q[query] = p.stdout.read()
+
+        return q
+
     DEBUG=1
+      
     def toBitmap(self):
         global options
 
@@ -3199,8 +3406,11 @@ class laser_gcode(inkex.Effect):
 
                 aa = base64.b64decode(imagedata)
 
+                with open(self.tempdir + "/" + "image.png", "wb") as f:
+                    f.write(aa)
+
                 data = self.__getPostParam__( dx, doc_height - float(dy) - float(height), height, aa )
-                gcode__ += self.__img2gco__("test", data)
+                gcode__ += self.__img2gco__("test", data, extension)
                 gcode__ += '\r\n'
 
         return gcode__
@@ -3227,14 +3437,15 @@ class laser_gcode(inkex.Effect):
             "offsetY" : dy,
             "image" : imagedata,
             "preview" : 0,
+            "fileas" : 1,
         }
         return data
 
-    def __encodeMultipart__(self, dict):
+    def __encodeMultipart__(self, dict, image_type):
         boundary = u"--------POSTDATApostdata"
         encoding = "utf-8"
         disposition = u'Content-Disposition: form-data; name="%s"'
-        disposition2 = u'Content-Disposition: form-data; name="%s"; filename="hogehoge.png"'
+        disposition2 = u'Content-Disposition: form-data; name="%s"; filename="hogehoge.%s"'
         lines = bytearray(b'')
 
         for k, v in dict.items():
@@ -3242,9 +3453,15 @@ class laser_gcode(inkex.Effect):
             lines += ('\r\n').encode('utf-8')
 
             if k == 'image':
-                lines += (disposition2 % k).encode('utf-8')
+                lines += (disposition2 % (k, image_type)).encode('utf-8')
                 lines += ('\r\n').encode('utf-8')
-                lines += ("Content-Type: image/png").encode('utf-8')
+                if image_type == 'jpg':
+                    image_type_c = "jpeg"
+                elif image_type == 'png':
+                    image_type_c = 'png'
+                else:
+                    image_type_c = 'png'
+                lines += ("Content-Type: image/" + image_type_c ).encode('utf-8')
             else:
                 lines += (disposition % k).encode('utf-8')
 
@@ -3267,7 +3484,7 @@ class laser_gcode(inkex.Effect):
 
         return lines
 
-    def __img2gco__(self, filepath, data):
+    def __img2gco__(self, filepath, data, image_type):
         url = "http://img2gco.appspot.com/gcode.php"
 
         boundary = u"--------POSTDATApostdata"
@@ -3279,12 +3496,12 @@ class laser_gcode(inkex.Effect):
                         % boundary.encode(encoding))
 
 
-        postdata = self.__encodeMultipart__(data)
+        postdata = self.__encodeMultipart__(data, image_type)
 
         conn = urllib2.urlopen(req, postdata)
 
         if conn.getcode() == 200:
-            return conn.read()
+            return gzip.GzipFile(fileobj=StringIO(conn.read())).read()
         else:
             return ""
 
@@ -3296,12 +3513,26 @@ class laser_gcode(inkex.Effect):
 ###        Main function of Gcodetools class
 ###
 ################################################################################
+    def remove_gcode_elements(self, document, except_orientation = True):
+        # remove gcodetools elements
+        for e in document.xpath('//ns:*[@gcodetools]', namespaces = {'ns':'http://www.w3.org/2000/svg'}):
+            if except_orientation==False or 'orientation' not in e.attrib['gcodetools']:
+                e.getparent().remove(e)
+
     def effect(self) :
         global options
         options = self.options
         options.self = self
+
+        self.tempdir = tempfile.gettempdir()
+
+        self.remove_gcode_elements(self.document, False)
+
         options.doc_root = self.document.getroot()
         # define print_ function
+
+        inkex.debug(self.options)
+
         global print_
         if self.options.log_create_log :
             try :
@@ -3319,29 +3550,54 @@ class laser_gcode(inkex.Effect):
             self.orientation( self.layers[min(0,len(self.layers)-1)] )
             self.get_info()
 
+# first pass
         self.tools = {
             "name": "Laser Engraver",
             "id": "Laser Engraver",
             "penetration feed": self.options.laser_speed,
             "feed": self.options.laser_speed,
             "gcode before path": ("G4 P0 \n"
-                                 + self.options.laser_command + ((" S" + str(int(self.options.laser_power))) if self.options.pwmParameterCommand == 'LaserOn' else "") + "\n" 
-                                 + (("M106 P" + self.options.m106Option + " S" + str(int(self.options.laser_power)) + "\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                 + self.options.laser_command + ((" S" + str(int(self.options.primary_laser_power))) if self.options.pwmParameterCommand == 'LaserOn' else "") + "\n" 
+                                 + (("M106 " + self.options.m106Option + " S" + str(int(self.options.primary_laser_power)) + "\n") if self.options.pwmParameterCommand == 'M106' else "")
                                  + "G4 P" + self.options.power_delay),
             "gcode after path": ("G4 P0 \n" 
                                 + self.options.laser_off_command + "\n"
-                                + (("M106 P" + self.options.m106Option + " S0\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                + (("M106 " + self.options.m106Option + " S0\n") if self.options.pwmParameterCommand == 'M106' else "")
                                 + "G1 F" + self.options.travel_speed + "\n"),
         }
 
+        self.remove_gcode_elements(self.document)
         self.get_info()
-        gcode = self.laser()
-#        inkex.debug(gcode)
+        gcode_primary_pass = self.laser()
+
+# secondary pass
+        self.tools = {
+            "name": "Laser Engraver",
+            "id": "Laser Engraver",
+            "penetration feed": self.options.laser_speed,
+            "feed": self.options.laser_speed,
+            "gcode before path": ("G4 P0 \n"
+                                 + self.options.laser_command + ((" S" + str(int(self.options.secondarylaser_power))) if self.options.pwmParameterCommand == 'LaserOn' else "") + "\n" 
+                                 + (("M106 " + self.options.m106Option + " S" + str(int(self.options.secondary_laser_power)) + "\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                 + "G4 P" + self.options.power_delay),
+            "gcode after path": ("G4 P0 \n" 
+                                + self.options.laser_off_command + "\n"
+                                + (("M106 " + self.options.m106Option + " S0\n") if self.options.pwmParameterCommand == 'M106' else "")
+                                + "G1 F" + self.options.travel_speed + "\n"),
+        }
+
+        self.remove_gcode_elements(self.document)
+        self.get_info()
+        gcode_secondary_pass = self.laser()
+
+        bitmaps = self.getBitmaps()
 
         bitmapgcode = self.toBitmap()
+
+
 #        inkex.debug(bitmapgcode)
 
-        self.export_gcode( gcode + bitmapgcode )
+        self.export_gcode( gcode_primary_pass, gcode_secondary_pass, bitmapgcode + bitmaps )
 
 
 e = laser_gcode()
