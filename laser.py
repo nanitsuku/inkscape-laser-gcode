@@ -3238,7 +3238,8 @@ class laser_gcode(inkex.Effect):
         global options
 
         tmp_dir = self.tempdir
-        tmp_filename = "hoge.svg"
+        tmp_filename = "exported_png"
+        src_image_filename = tmp_dir + '/' + tmp_filename
 
         document = copy.deepcopy(self.document)
 
@@ -3251,31 +3252,24 @@ class laser_gcode(inkex.Effect):
 
             # remove not 
             for object in g.findall('*'):
-#                inkex.debug(object.tag)
                 if object.tag.endswith('image'):
                     if 'style' in object.attrib:
-#                        inkex.debug(object)
                         styles = parseStyle(object.attrib['style'])
                         styles['display'] = 'none'
                         object.attrib['style'] = formatStyle(styles)
-#                        inkex.debug(object)
                     else:
                         styles={}
                         styles['display'] = 'none'
                         object.attrib['style'] = formatStyle(styles)
-#                        inkex.debug(object)
                 else:
                     if 'style' in object.attrib:
                         isEngraveObject=False
                         for attrib in object.attrib:
-#                            inkex.debug(attrib)
                             if attrib.endswith('label'):
                                 inkex.debug(attrib)
                                 inkex.debug(object.attrib[attrib])
                                 if object.attrib[attrib].endswith(engrave_label):
-    #                                object.getparent().remove(obejct)
                                     isEngraveObject=True
-                                    inkex.debug("its engrave")
                                     break
                         if not isEngraveObject:
                             object.getparent().remove(object)
@@ -3505,9 +3499,6 @@ class laser_gcode(inkex.Effect):
         self.remove_gcode_elements(self.document, False)
 
         options.doc_root = self.document.getroot()
-        # define print_ function
-
-        inkex.debug(self.options)
 
         global print_
         if self.options.log_create_log :
