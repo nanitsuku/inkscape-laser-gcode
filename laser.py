@@ -3582,20 +3582,10 @@ class laser_gcode(inkex.Effect):
         gcode_primary_pass = self.laser()
 
 # secondary pass
-        self.tools = {
-            "name": "Laser Engraver",
-            "id": "Laser Engraver",
-            "penetration feed": self.options.laser_speed,
-            "feed": self.options.laser_speed,
-            "gcode before path": ("G4 P0 \n"
+        self.tools["gcode before path"] = ("G4 P0 \n"
                                  + self.options.laser_command + ((" S" + str(int(self.options.secondarylaser_power))) if self.options.pwmParameterCommand == 'LaserOn' else "") + "\n" 
                                  + (("M106 " + self.options.m106Option + " S" + str(int(self.options.secondary_laser_power)) + "\n") if self.options.pwmParameterCommand == 'M106' else "")
-                                 + "G4 P" + self.options.power_delay),
-            "gcode after path": ("G4 P0 \n" 
-                                + self.options.laser_off_command + "\n"
-                                + (("M106 " + self.options.m106Option + " S0\n") if self.options.pwmParameterCommand == 'M106' else "")
-                                + "G1 F" + self.options.travel_speed + "\n"),
-        }
+                                 + "G4 P" + self.options.power_delay)
 
         self.remove_gcode_elements(self.document)
         self.get_info()
