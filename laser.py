@@ -48,6 +48,8 @@ import urllib2
 import subprocess
 from PIL import Image, ImageOps, ImageChops
 import tempfile
+import gzip
+from StringIO import StringIO
 
 ### Check if inkex has errormsg (0.46 version doesnot have one.) Could be removed later.
 if "errormsg" not in dir(inkex):
@@ -3435,6 +3437,7 @@ class laser_gcode(inkex.Effect):
             "offsetY" : dy,
             "image" : imagedata,
             "preview" : 0,
+            "fileas" : 1,
         }
         return data
 
@@ -3498,7 +3501,7 @@ class laser_gcode(inkex.Effect):
         conn = urllib2.urlopen(req, postdata)
 
         if conn.getcode() == 200:
-            return conn.read()
+            return gzip.GzipFile(fileobj=StringIO(conn.read())).read()
         else:
             return ""
 
