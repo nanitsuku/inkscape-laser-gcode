@@ -3242,6 +3242,7 @@ class laser_gcode(inkex.Effect):
         src_image_filename = tmp_dir + '/' + tmp_filename
 
         document = copy.deepcopy(self.document)
+        document.write(src_image_filename)
 
         for g in document.findall('{*}g'):
 
